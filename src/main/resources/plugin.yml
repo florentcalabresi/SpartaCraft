@@ -1,0 +1,5 @@
+name: SpartaCraft
+version: '${project.version}'
+main: fr.sunshinedev.spartacraft.SpartaCraft
+api-version: '1.21'
+softdepend: [UltimateAdvancementAPI]
