@@ -1,15 +1,23 @@
 package fr.sunshinedev.spartacraft.listeners;
 
+import com.fren_gor.ultimateAdvancementAPI.UltimateAdvancementAPI;
+import com.fren_gor.ultimateAdvancementAPI.advancement.display.AdvancementFrameType;
+import fr.sunshinedev.spartacraft.managers.AdvancementManager;
 import fr.sunshinedev.spartacraft.SpartaCraft;
 import fr.sunshinedev.spartacraft.objects.SCPlayer;
+import fr.sunshinedev.spartacraft.objects.SCPlayerQuest;
+import fr.sunshinedev.spartacraft.objects.SCQuest;
 import org.bukkit.*;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -18,6 +26,7 @@ import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
@@ -28,19 +37,20 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        SpartaCraft.getInstance().getPlayersPoop().add(new SCPlayer(event.getPlayer().getUniqueId()));
+        SpartaCraft.getInstance().getPlayers().add(new SCPlayer(event.getPlayer()));
         SpartaCraft.getInstance().getAdvancementTab().showTab(event.getPlayer());
+        UltimateAdvancementAPI.getInstance(SpartaCraft.getInstance()).displayCustomToast(event.getPlayer(), new ItemStack(Material.SAND), "Ceci est un test", AdvancementFrameType.TASK);
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        SpartaCraft.getInstance().getPlayersPoop().removeIf((playerPooper -> playerPooper.uuid == event.getPlayer().getUniqueId()));
+        SpartaCraft.getInstance().getPlayers().removeIf((playerPooper -> playerPooper.uuid == event.getPlayer().getUniqueId()));
     }
 
     @EventHandler
     public void onPlayerSneak(PlayerToggleSneakEvent event) {
         Player player = event.getPlayer();
-        Optional<SCPlayer> optionalPlayerPooper = SpartaCraft.getInstance().getPlayersPoop().stream().filter((playerPooper -> playerPooper.uuid == player.getUniqueId())).findFirst();
+        Optional<SCPlayer> optionalPlayerPooper = SpartaCraft.getInstance().getPlayers().stream().filter((playerPooper -> playerPooper.uuid == player.getUniqueId())).findFirst();
         if(!optionalPlayerPooper.isPresent()) return;
         SCPlayer playerPooper = optionalPlayerPooper.get();
         if(player.getGameMode() == GameMode.CREATIVE) return;
@@ -55,9 +65,9 @@ public class PlayerListener implements Listener {
                     playerPooper.listPoopTimestamps.removeIf(timestamp -> currentTime - timestamp > TIME_WINDOW);
                     playerPooper.listPoopTimestamps.add(currentTime);
 
-                    SpartaCraft.getInstance().getAdvFirstPoop().grant(player);
+                    AdvancementManager.getAdvFirstPoop().grant(player);
                     if(poopGold) {
-                        SpartaCraft.getInstance().getAdvFirstPoopGold().grant(player);
+                        AdvancementManager.getAdvFirstPoopGold().grant(player);
                     }
 
                     World world = player.getWorld();
@@ -82,7 +92,7 @@ public class PlayerListener implements Listener {
                     blockDisplay.setTransformation(transformation);
 
                     if (playerPooper.listPoopTimestamps.size() >= 5) {
-                        SpartaCraft.getInstance().getAdvFirstPoopDiarrhea().grant(player);
+                        AdvancementManager.getAdvFirstPoopDiarrhea().grant(player);
                         player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 90 * 20, 1));
                         player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 90 * 20, 150));
                         player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 90 * 20, 1));
@@ -115,6 +125,30 @@ public class PlayerListener implements Listener {
                 playerPooper.handlerPoop.cancel();
             }
         }
+    }
+
+    @EventHandler
+    public void onPlayerMining(PlayerPickupItemEvent event) {
+        Player player = event.getPlayer();
+        Optional<SCPlayer> optionalPlayer = SpartaCraft.getInstance().getPlayers().stream().filter((playerPooper -> playerPooper.uuid == player.getUniqueId())).findFirst();
+        if(!optionalPlayer.isPresent()) return;
+        SCPlayer scplayer = optionalPlayer.get();
+        if(SpartaCraft.getInstance().getQuestsCurrent().isEmpty()) return;
+        List<SCQuest> quest = SpartaCraft.getInstance().getQuestsCurrent();
+        quest.forEach((scQuest -> {
+            if(!scQuest.getType().equalsIgnoreCase("take")) return;
+            Material materialTarget = Material.getMaterial(scQuest.getQuestValue());
+            if(materialTarget == null) return;
+
+            if(event.getItem().getItemStack().getType().name().equalsIgnoreCase(scQuest.getQuestValue())) {
+                Optional<SCPlayerQuest> playerQuest = scplayer.playerQuests.stream().filter(scPlayerQuest -> scPlayerQuest.getQid().equalsIgnoreCase(scQuest.getUuid())).findFirst();
+                if(playerQuest.isEmpty()) return;
+                SCPlayerQuest scPlayerQuest = playerQuest.get();
+                if(scPlayerQuest.getAmount() >= scQuest.getQuestAmount()) return;
+                scPlayerQuest.setAmount(scPlayerQuest.getAmount() + 1);
+                scplayer.updateQuestCurrent();
+            }
+        }));
     }
 
 }

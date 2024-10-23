@@ -3,3 +3,9 @@ version: '${project.version}'
 main: fr.sunshinedev.spartacraft.SpartaCraft
 api-version: '1.21'
 softdepend: [UltimateAdvancementAPI]
+commands:
+  scquest:
+    description: A Command for Quest SpartaCraft
+    usage: /scquest
+    permission: sc.quest.use
+    permission-message: You don't have permission to use this command.
